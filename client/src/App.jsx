@@ -21,10 +21,22 @@ function App() {
     marca: '',
     fornecedor: '',
     ua: '',
-    situacao: ''
+    situacao: '',
+    responsavel: '',
+    conta: ''
   })
   const [debouncedFilters, setDebouncedFilters] = useState(filters)
 
+  const [filterOptions, setFilterOptions] = useState({
+    locais: [],
+    marcas: [],
+    fornecedores: [],
+    uas: [],
+    situacoes: [],
+    responsaveis: [],
+    contas: []
+  })
+  
   // Debounce para os filtros
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -34,9 +46,32 @@ function App() {
     return () => clearTimeout(timer)
   }, [filters])
 
+  // Buscar opções de filtro ao carregar
+  useEffect(() => {
+    axios.get('http://localhost:3002/api/filter-options')
+      .then(response => {
+        setFilterOptions(response.data)
+      })
+      .catch(err => console.error('Erro ao buscar opções de filtro:', err))
+  }, [])
+
   const handleFilterChange = (e) => {
     const { name, value } = e.target
     setFilters(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleClearFilters = () => {
+    setFilters({
+      patrimonio: '',
+      descricao: '',
+      local: '',
+      marca: '',
+      fornecedor: '',
+      ua: '',
+      situacao: '',
+      responsavel: '',
+      conta: ''
+    })
   }
 
   const fetchData = () => {
@@ -72,6 +107,14 @@ function App() {
     }).format(value)
   }
 
+  const getSituacaoBadgeClass = (situacaoFisica) => {
+    const value = (situacaoFisica || '').toString().trim().toUpperCase()
+    if (!value) return 'badge badge-muted'
+    if (value.includes('BOM')) return 'badge badge-success'
+    if (value.includes('IRRECUP') || value.includes('INSERV') || value.includes('INUTIL')) return 'badge badge-danger'
+    return 'badge badge-warning'
+  }
+
   const handleSync = async () => {
     setSyncing(true)
     setSyncMsg('Importando dados da API...')
@@ -92,17 +135,31 @@ function App() {
 
   return (
     <div className="container">
-      <h1>Inventário SEPLAG/MT</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Inventário SEPLAG/MT</h1>
+          <div className="page-subtitle">Consulta local via banco de dados (MySQL)</div>
+        </div>
+        <div className="page-header-actions">
+          {!!syncMsg && <div className="status-pill" role="status">{syncMsg}</div>}
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="btn btn-primary"
+          >
+            {syncing ? 'Importando...' : 'Importar Dados da API'}
+          </button>
+        </div>
+      </div>
       
-      <div className="filters-card" style={{ 
-        backgroundColor: '#fff', 
-        padding: '20px', 
-        borderRadius: '8px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Filtros</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+      <div className="card filters-card">
+        <div className="card-header">
+          <h2 className="card-title">Filtros</h2>
+          <button onClick={handleClearFilters} className="btn btn-ghost" type="button">
+            Limpar
+          </button>
+        </div>
+        <div className="filters-grid">
           <input 
             type="text" 
             name="patrimonio"
@@ -122,73 +179,108 @@ function App() {
           <input 
             type="text" 
             name="local"
+            list="locais-list"
             placeholder="Local" 
             value={filters.local}
             onChange={handleFilterChange}
             className="filter-input"
           />
+          <datalist id="locais-list">
+            {filterOptions.locais.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
+
           <input 
             type="text" 
             name="marca"
+            list="marcas-list"
             placeholder="Marca" 
             value={filters.marca}
             onChange={handleFilterChange}
             className="filter-input"
           />
+          <datalist id="marcas-list">
+            {filterOptions.marcas.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
+
           <input 
             type="text" 
             name="fornecedor"
+            list="fornecedores-list"
             placeholder="Fornecedor" 
             value={filters.fornecedor}
             onChange={handleFilterChange}
             className="filter-input"
           />
+          <datalist id="fornecedores-list">
+            {filterOptions.fornecedores.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
+
           <input 
             type="text" 
             name="ua"
+            list="uas-list"
             placeholder="Unidade Administrativa" 
             value={filters.ua}
             onChange={handleFilterChange}
             className="filter-input"
           />
+          <datalist id="uas-list">
+            {filterOptions.uas.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
+
            <input 
             type="text" 
             name="situacao"
+            list="situacoes-list"
             placeholder="Situação" 
             value={filters.situacao}
             onChange={handleFilterChange}
             className="filter-input"
           />
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-end' }}>
-          <span>{syncMsg}</span>
-          <button 
-            onClick={handleSync} 
-            disabled={syncing}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#009879',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: syncing ? 'not-allowed' : 'pointer',
-              opacity: syncing ? 0.7 : 1,
-              fontWeight: 'bold',
-              fontSize: '14px'
-            }}
-          >
-            {syncing ? 'Importando...' : 'Importar Dados da API'}
-          </button>
+          <datalist id="situacoes-list">
+            {filterOptions.situacoes.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
+
+          <input 
+            type="text" 
+            name="responsavel"
+            list="responsaveis-list"
+            placeholder="Responsável" 
+            value={filters.responsavel}
+            onChange={handleFilterChange}
+            className="filter-input"
+          />
+          <datalist id="responsaveis-list">
+            {filterOptions.responsaveis.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
+
+          <input 
+            type="text" 
+            name="conta"
+            list="contas-list"
+            placeholder="Conta / Categoria" 
+            value={filters.conta}
+            onChange={handleFilterChange}
+            className="filter-input"
+          />
+          <datalist id="contas-list">
+            {filterOptions.contas.map((opt, i) => <option key={i} value={opt} />)}
+          </datalist>
         </div>
       </div>
 
-      <div style={{ marginBottom: '10px', color: '#666' }}>
-        Exibindo {items.length} de {totalItems} registros
+      <div className="meta-row">
+        <div className="meta-pill">
+          Exibindo <strong>{items.length}</strong> de <strong>{totalItems}</strong> registros
+        </div>
+        <div className="meta-pill">
+          Página <strong>{page}</strong> de <strong>{totalPages || 1}</strong>
+        </div>
       </div>
       
-      <div className="table-container" style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <table className="inventory-table">
+      <div className="card table-card">
+        <div className="table-scroll">
+          <table className="inventory-table">
           <thead>
             <tr>
               <th>ID Sistema</th>
@@ -198,6 +290,8 @@ function App() {
               <th>Marca</th>
               <th>Local</th>
               <th>UA</th>
+              <th>Responsável</th>
+              <th>Conta</th>
               <th>Fornecedor</th>
               <th>Situação</th>
               <th>Status</th>
@@ -208,49 +302,44 @@ function App() {
           <tbody>
             {items.map((item) => (
               <tr key={item.idSQBemPerm || item.numeroPatrimonio}>
-                <td style={{ color: '#888', fontSize: '0.9em' }}>{item.idSQBemPerm}</td>
-                <td style={{ fontWeight: 'bold' }}>{item.numeroPatrimonio}</td>
-                <td style={{ color: '#666', fontSize: '0.9em' }}>{item.numeroPatrimonioAntigo || '-'}</td>
-                <td style={{ minWidth: '200px' }}>{item.descricao || item.descricaoMaterial}</td>
+                <td className="cell-muted">{item.idSQBemPerm}</td>
+                <td className="cell-strong">{item.numeroPatrimonio}</td>
+                <td className="cell-muted">{item.numeroPatrimonioAntigo || '-'}</td>
+                <td className="cell-wide">{item.descricao || item.descricaoMaterial}</td>
                 <td>{item.marca || '-'}</td>
                 <td>{item.nomeLocal}</td>
                 <td>{item.nomeUA || '-'}</td>
+                <td>{item.responsavel || '-'}</td>
+                <td>{item.conta || '-'}</td>
                 <td>{item.nomeFornecedor || '-'}</td>
                 <td>
-                  <span style={{ 
-                    padding: '4px 8px', 
-                    borderRadius: '4px', 
-                    backgroundColor: item.situacaoFisica === 'BOM' ? '#e8f5e9' : '#fff3e0',
-                    color: item.situacaoFisica === 'BOM' ? '#2e7d32' : '#ef6c00',
-                    fontSize: '0.85em',
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap'
-                  }}>
+                  <span className={getSituacaoBadgeClass(item.situacaoFisica)}>
                     {item.situacaoFisica}
                   </span>
                 </td>
                 <td>{item.status || '-'}</td>
-                <td style={{ whiteSpace: 'nowrap' }}>{item.dataAquisicao ? new Date(item.dataAquisicao).toLocaleDateString('pt-BR') : '-'}</td>
-                <td style={{ fontFamily: 'monospace', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{formatCurrency(item.valorUnitario)}</td>
+                <td className="cell-nowrap">{item.dataAquisicao ? new Date(item.dataAquisicao).toLocaleDateString('pt-BR') : '-'}</td>
+                <td className="cell-money">{formatCurrency(item.valorUnitario)}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
-      <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px', alignItems: 'center' }}>
+      <div className="pagination">
         <button 
           onClick={() => setPage(p => Math.max(1, p - 1))}
           disabled={page === 1}
-          style={{ padding: '8px 16px', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+          className="btn btn-secondary"
         >
           Anterior
         </button>
-        <span>Página {page} de {totalPages}</span>
+        <span className="pagination-label">Página {page} de {totalPages || 1}</span>
         <button 
           onClick={() => setPage(p => Math.min(totalPages, p + 1))}
           disabled={page === totalPages}
-          style={{ padding: '8px 16px', cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+          className="btn btn-secondary"
         >
           Próxima
         </button>

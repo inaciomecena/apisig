@@ -35,7 +35,9 @@ async function initDb() {
       'ALTER TABLE inventario ADD COLUMN status VARCHAR(100)',
       'ALTER TABLE inventario ADD COLUMN nome_fornecedor VARCHAR(255)',
       'ALTER TABLE inventario ADD COLUMN nome_ua VARCHAR(255)',
-      'ALTER TABLE inventario ADD COLUMN numero_patrimonio_antigo VARCHAR(50)'
+      'ALTER TABLE inventario ADD COLUMN numero_patrimonio_antigo VARCHAR(50)',
+      'ALTER TABLE inventario ADD COLUMN responsavel_ul VARCHAR(255)',
+      'ALTER TABLE inventario ADD COLUMN conta_atual VARCHAR(255)'
     ];
 
     for (const sql of columnsToAdd) {
@@ -80,7 +82,9 @@ app.get('/api/inventario', async (req, res) => {
       marca: req.query.marca,
       fornecedor: req.query.fornecedor,
       ua: req.query.ua,
-      situacao: req.query.situacao
+      situacao: req.query.situacao,
+      responsavel: req.query.responsavel,
+      conta: req.query.conta
     };
 
     const connection = await db.getConnection();
@@ -118,6 +122,14 @@ app.get('/api/inventario', async (req, res) => {
         conditions.push('situacao_fisica LIKE ?');
         params.push(`%${filters.situacao}%`);
       }
+      if (filters.responsavel) {
+        conditions.push('responsavel_ul LIKE ?');
+        params.push(`%${filters.responsavel}%`);
+      }
+      if (filters.conta) {
+        conditions.push('conta_atual LIKE ?');
+        params.push(`%${filters.conta}%`);
+      }
 
       if (conditions.length > 0) {
         const whereClause = ' WHERE ' + conditions.join(' AND ');
@@ -148,7 +160,9 @@ app.get('/api/inventario', async (req, res) => {
           marca: row.marca,
           status: row.status,
           nomeFornecedor: row.nome_fornecedor,
-          nomeUA: row.nome_ua
+          nomeUA: row.nome_ua,
+          responsavel: row.responsavel_ul,
+          conta: row.conta_atual
         })),
         pagination: {
           page,
@@ -163,6 +177,37 @@ app.get('/api/inventario', async (req, res) => {
   } catch (error) {
     console.error('Erro ao buscar inventario do banco:', error.message);
     res.status(500).json({ error: 'Erro ao buscar dados do banco de dados', details: error.message });
+  }
+});
+
+app.get('/api/filter-options', async (req, res) => {
+  try {
+    const connection = await db.getConnection();
+    try {
+      // Consultas para obter valores únicos de cada campo
+      const [locais] = await connection.query('SELECT DISTINCT nome_local FROM inventario WHERE nome_local IS NOT NULL ORDER BY nome_local');
+      const [marcas] = await connection.query('SELECT DISTINCT marca FROM inventario WHERE marca IS NOT NULL AND marca != "" ORDER BY marca');
+      const [fornecedores] = await connection.query('SELECT DISTINCT nome_fornecedor FROM inventario WHERE nome_fornecedor IS NOT NULL AND nome_fornecedor != "" ORDER BY nome_fornecedor');
+      const [uas] = await connection.query('SELECT DISTINCT nome_ua FROM inventario WHERE nome_ua IS NOT NULL ORDER BY nome_ua');
+      const [situacoes] = await connection.query('SELECT DISTINCT situacao_fisica FROM inventario WHERE situacao_fisica IS NOT NULL ORDER BY situacao_fisica');
+      const [responsaveis] = await connection.query('SELECT DISTINCT responsavel_ul FROM inventario WHERE responsavel_ul IS NOT NULL AND responsavel_ul != "" ORDER BY responsavel_ul');
+      const [contas] = await connection.query('SELECT DISTINCT conta_atual FROM inventario WHERE conta_atual IS NOT NULL ORDER BY conta_atual');
+
+      res.json({
+        locais: locais.map(row => row.nome_local),
+        marcas: marcas.map(row => row.marca),
+        fornecedores: fornecedores.map(row => row.nome_fornecedor),
+        uas: uas.map(row => row.nome_ua),
+        situacoes: situacoes.map(row => row.situacao_fisica),
+        responsaveis: responsaveis.map(row => row.responsavel_ul),
+        contas: contas.map(row => row.conta_atual)
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Erro ao buscar opções de filtro:', error.message);
+    res.status(500).json({ error: 'Erro ao buscar opções de filtro' });
   }
 });
 
@@ -194,8 +239,9 @@ app.post('/api/sync', async (req, res) => {
           INSERT INTO inventario (
             id_bem_perm, numero_patrimonio, descricao, nome_local, 
             situacao_fisica, data_aquisicao, valor_unitario,
-            marca, status, nome_fornecedor, nome_ua, numero_patrimonio_antigo
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            marca, status, nome_fornecedor, nome_ua, numero_patrimonio_antigo,
+            responsavel_ul, conta_atual
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             descricao = VALUES(descricao),
             nome_local = VALUES(nome_local),
@@ -206,7 +252,9 @@ app.post('/api/sync', async (req, res) => {
             status = VALUES(status),
             nome_fornecedor = VALUES(nome_fornecedor),
             nome_ua = VALUES(nome_ua),
-            numero_patrimonio_antigo = VALUES(numero_patrimonio_antigo)
+            numero_patrimonio_antigo = VALUES(numero_patrimonio_antigo),
+            responsavel_ul = VALUES(responsavel_ul),
+            conta_atual = VALUES(conta_atual)
         `, [
           item.idSQBemPerm,
           item.numeroPatrimonio,
@@ -219,7 +267,9 @@ app.post('/api/sync', async (req, res) => {
           item.status,
           item.nomeFornecedor,
           item.nomeUA,
-          item.numeroPatrimonioAntigo
+          item.numeroPatrimonioAntigo,
+          item.responsavelUL,
+          item.contaAtual
         ]);
       }
 
